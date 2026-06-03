@@ -14,6 +14,7 @@ const assistantController = require("../controllers/assistantController");
 const adminController = require("../controllers/adminController");
 const aiController = require("../controllers/aiController");
 const healthController = require("../controllers/healthController");
+const placementController = require("../controllers/placementController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireRole } = require("../middleware/rbacMiddleware");
 const {
@@ -124,5 +125,11 @@ router.post(
   uploadController.pdfUpload.single("notes"),
   uploadController.extractNotesText
 );
+
+// Placement Hub Endpoints
+router.get("/placement/tracker", placementController.getPlacementTracker);
+router.put("/placement/tracker", placementController.updatePlacementTracker);
+router.get("/placement/interview-prep", placementController.getInterviewPrep);
+router.post("/placement/interview-prep", placementController.upsertInterviewPrep);
 
 module.exports = router;

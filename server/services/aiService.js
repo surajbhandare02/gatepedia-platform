@@ -2,38 +2,7 @@ const pool = require("../db");
 const { openai } = require("../config/env");
 const intelligenceService = require("./intelligenceService");
 const { HttpError } = require("../middleware/errorHandler");
-
-async function callOpenAI(prompt, fallback) {
-  if (!openai.apiKey || typeof fetch !== "function") return fallback();
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openai.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: openai.model,
-      input: prompt,
-      temperature: 0.35,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new HttpError(502, `AI provider failed: ${body.slice(0, 180)}`);
-  }
-
-  const data = await response.json();
-  return (
-    data.output_text ||
-    data.output?.flatMap((item) => item.content || [])
-      ?.map((content) => content.text || "")
-      ?.join("\n")
-      ?.trim() ||
-    fallback()
-  );
-}
+const aiProvider = require("./aiProvider");
 
 async function getTopic(topicId) {
   const result = await pool.query(
@@ -54,7 +23,7 @@ Subject: ${topic.subject}
 Topic: ${topic.title}
 Give: intuition, core concepts, exam traps, and a 20-minute study plan.`;
 
-  const explanation = await callOpenAI(prompt, () =>
+  const explanation = await aiProvider.generate(prompt, () =>
     [
       `${topic.title} belongs to ${topic.subject}.`,
       "Start by writing definitions, then solve one solved example, then attempt two PYQs.",
@@ -81,7 +50,7 @@ async function generateQuiz(userId, topicId) {
   const prompt = `Generate 5 GATE CSE practice questions for ${topic.subject}: ${topic.title}.
 Return concise questions with answer keys and difficulty labels.`;
 
-  const quiz = await callOpenAI(prompt, () =>
+  const quiz = await aiProvider.generate(prompt, () =>
     [
       {
         question: `What is the key idea tested in ${topic.title}?`,
@@ -104,7 +73,7 @@ async function generateFlashcards(userId, topicId) {
   const prompt = `Create 6 quick revision flashcards for GATE CSE topic ${topic.title} in ${topic.subject}.
 Return front/back pairs.`;
 
-  const cards = await callOpenAI(prompt, () => [
+  const cards = await aiProvider.generate(prompt, () => [
     { front: `Core definition of ${topic.title}`, back: "Write the formal definition and one example." },
     { front: "Common GATE trap", back: "Check assumptions before using a shortcut formula." },
     { front: "Revision drill", back: "Solve one PYQ and explain every option." },
@@ -129,7 +98,7 @@ async function recommendations(userId) {
 ${JSON.stringify(planner).slice(0, 6000)}
 Return priorities, revision advice, PYQ advice, and risk signals.`;
 
-  const text = await callOpenAI(prompt, () =>
+  const text = await aiProvider.generate(prompt, () =>
     planner.insights?.length
       ? planner.insights.map((item) => `${item.title}: ${item.body}`).join("\n")
       : "Complete more topics and PYQs to unlock richer recommendations."
@@ -148,7 +117,7 @@ ${JSON.stringify(basePlanner.today_plan)}
 
 Return ONLY a JSON array of objects with keys: order, topic_id, title, subject, minutes, reason.`;
 
-  const aiText = await callOpenAI(prompt, () => null);
+  const aiText = await aiProvider.generate(prompt, () => null);
   if (aiText) {
     try {
       const cleaned = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
@@ -172,7 +141,7 @@ async function enhancePerformance(userId) {
 Here are their weak subjects: ${JSON.stringify(basePerf.weak_subjects)}
 Write a brief, 2-sentence AI assessment explaining their readiness score and what to focus on next. Return plain text.`;
 
-  const aiText = await callOpenAI(prompt, () => null);
+  const aiText = await aiProvider.generate(prompt, () => null);
   if (aiText) {
     basePerf.insights.unshift({
       title: "AI Readiness Assessment",
@@ -192,7 +161,7 @@ async function enhancePyq(userId) {
 The student has weak topics: ${JSON.stringify(basePyq.weak_pyq_topics.slice(0, 3))}
 Generate a brief 2-sentence trend prediction about which of these concepts is most likely to repeat in GATE, and why. Return plain text.`;
 
-  const aiText = await callOpenAI(prompt, () => null);
+  const aiText = await aiProvider.generate(prompt, () => null);
   if (aiText) {
     basePyq.repeated_concepts.unshift({
       subject: "AI Trend Prediction",
@@ -215,7 +184,7 @@ ${text.slice(0, 4000)}
 
 Format the output as valid JSON with keys: "summary", "flashcards" (array of {front, back}), and "revisionPoints" (array of strings).`;
 
-  const resultText = await callOpenAI(prompt, () => 
+  const resultText = await aiProvider.generate(prompt, () => 
     JSON.stringify({
       summary: "This is a placeholder summary. AI processing failed or is disabled.",
       flashcards: [
