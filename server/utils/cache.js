@@ -86,8 +86,13 @@ async function health() {
   return { enabled: true, status: "ok" };
 }
 
+function getRedisClient() {
+  return redisClient;
+}
+
 module.exports = {
   connectCache,
+  getRedisClient,
   getJSON,
   setJSON,
   getOrSet,

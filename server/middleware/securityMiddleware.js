@@ -3,6 +3,8 @@ const helmet = require("helmet");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
+const { RedisStore } = require("rate-limit-redis");
+const { getRedisClient } = require("../utils/cache");
 const {
   cookieSecret,
   csrfCookieName,
@@ -14,9 +16,22 @@ const { HttpError } = require("./errorHandler");
 
 const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 
+// Function to get store dynamically so it works even if Redis connects after module load
+const getStore = (prefix) => {
+  const client = getRedisClient();
+  if (client) {
+    return new RedisStore({
+      sendCommand: (...args) => client.sendCommand(args),
+      prefix,
+    });
+  }
+  return undefined; // fallback to memory
+};
+
 const apiRateLimiter = rateLimit({
   windowMs: rateLimitConfig.windowMs,
   max: rateLimitConfig.max,
+  store: getStore("rl:api:"),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many requests. Please slow down." },
@@ -25,6 +40,7 @@ const apiRateLimiter = rateLimit({
 const authRateLimiter = rateLimit({
   windowMs: rateLimitConfig.windowMs,
   max: rateLimitConfig.authMax,
+  store: getStore("rl:auth:"),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many login attempts. Try again later." },
