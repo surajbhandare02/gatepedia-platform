@@ -14,6 +14,7 @@ async function connectCache() {
   redisClient = createClient({
     url: redisUrl,
     socket: { reconnectStrategy: (retries) => (retries > 3 ? false : Math.min(retries * 200, 2000)) },
+    disableOfflineQueue: true,
   });
   
   redisClient.on("error", (error) => {

@@ -16,35 +16,38 @@ const { HttpError } = require("./errorHandler");
 
 const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 
-// Function to get store dynamically so it works even if Redis connects after module load
-const getStore = (prefix) => {
-  const client = getRedisClient();
-  if (client) {
-    return new RedisStore({
-      sendCommand: (...args) => client.sendCommand(args),
-      prefix,
+let _apiRateLimiter;
+let _authRateLimiter;
+
+const apiRateLimiter = (req, res, next) => {
+  if (!_apiRateLimiter) {
+    const client = getRedisClient();
+    _apiRateLimiter = rateLimit({
+      windowMs: rateLimitConfig.windowMs,
+      max: rateLimitConfig.max,
+      store: client ? new RedisStore({ sendCommand: (...args) => client.sendCommand(args), prefix: "rl:api:" }) : undefined,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { success: false, message: "Too many requests. Please slow down." },
     });
   }
-  return undefined; // fallback to memory
+  return _apiRateLimiter(req, res, next);
 };
 
-const apiRateLimiter = rateLimit({
-  windowMs: rateLimitConfig.windowMs,
-  max: rateLimitConfig.max,
-  store: getStore("rl:api:"),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many requests. Please slow down." },
-});
-
-const authRateLimiter = rateLimit({
-  windowMs: rateLimitConfig.windowMs,
-  max: rateLimitConfig.authMax,
-  store: getStore("rl:auth:"),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: "Too many login attempts. Try again later." },
-});
+const authRateLimiter = (req, res, next) => {
+  if (!_authRateLimiter) {
+    const client = getRedisClient();
+    _authRateLimiter = rateLimit({
+      windowMs: rateLimitConfig.windowMs,
+      max: rateLimitConfig.authMax,
+      store: client ? new RedisStore({ sendCommand: (...args) => client.sendCommand(args), prefix: "rl:auth:" }) : undefined,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { success: false, message: "Too many login attempts. Try again later." },
+    });
+  }
+  return _authRateLimiter(req, res, next);
+};
 
 function sanitizeString(value) {
   return value
