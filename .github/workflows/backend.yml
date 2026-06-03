@@ -1,0 +1,44 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'server/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Prisma Validation & Generation
+      run: npx prisma generate
+
+    - name: Run ESLint
+      run: npx eslint .
+      continue-on-error: true # Optional: depending on strictness
+
+    - name: Run Tests
+      run: npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test_secret
+        JWT_REFRESH_SECRET: test_refresh
+        COOKIE_SECRET: test_cookie

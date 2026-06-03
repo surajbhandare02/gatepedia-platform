@@ -1,0 +1,23 @@
+name: Deployment Validation
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Verify Environment Templates
+      run: |
+        if [ ! -f "client/.env.example" ]; then exit 1; fi
+        if [ ! -f "server/.env.example" ]; then exit 1; fi
+        
+    - name: Validate Render Config
+      run: |
+        if [ ! -f "render.yaml" ]; then exit 1; fi
+
+    - name: Declare Production Ready
+      run: echo "Gatepedia passes automated infrastructure checks. Render and Vercel will now deploy automatically based on GitHub webhooks."

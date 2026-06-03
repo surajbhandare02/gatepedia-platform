@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: gatepedia-api
+    env: node
+    rootDir: server
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: CLIENT_ORIGIN
+        value: https://gatepedia.vercel.app
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false

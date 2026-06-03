@@ -1,0 +1,599 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                        Int                      @id @default(autoincrement())
+  name                      String?                  @db.VarChar(100)
+  email                     String?                  @unique(map: "idx_users_email_unique") @db.VarChar(100)
+  password                  String?                  @db.VarChar(255)
+  password_hash             String?
+  created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  role                      String                   @default("student") @db.VarChar(30)
+  avatar_url                String?
+  target_exam_date          DateTime?                @db.Date
+  daily_goal_hours          Decimal                  @default(4) @db.Decimal(5, 2)
+  weekly_goal_hours         Decimal                  @default(24) @db.Decimal(5, 2)
+  preferences               Json                     @default("{}")
+  updated_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  email_verified_at         DateTime?                @db.Timestamptz(6)
+  last_login_at             DateTime?                @db.Timestamptz(6)
+  ai_insights               ai_insights[]
+  analytics_snapshots       analytics_snapshots[]
+  assistant_messages        assistant_messages[]
+  attachments               attachments[]
+  discussion_comments       DiscussionComment[]
+  discussion_threads        DiscussionThread[]
+  email_verification_tokens EmailVerificationToken[]
+  file_versions             FileVersion[]
+  flashcards                flashcards[]
+  focus_sessions            FocusSession[]
+  goals                     Goal[]
+  notes                     notes[]
+  notifications             Notification[]
+  oauth_accounts            OAuthAccount[]
+  password_reset_tokens     PasswordResetToken[]
+  progress                  Progress[]
+  pyq_tracking              pyq_tracking[]
+  revision_schedule         revision_schedule[]
+  revisions                 revisions[]
+  streaks                   streaks?
+  study_group_members       StudyGroupMember[]
+  study_groups              StudyGroup[]
+  study_room_members        study_room_members[]
+  study_room_messages       study_room_messages[]
+  study_rooms               study_rooms[]
+  study_sessions            study_sessions[]
+  subjects                  Subject[]
+  topic_progress            topic_progress[]
+  uploads                   uploads[]
+  user_achievements         user_achievements[]
+  mfa_setting               UserMfaSetting?
+  sessions                  UserSession[]
+  weak_topics               weak_topics[]
+
+  @@map("users")
+}
+
+model Subject {
+  id             Int              @id @default(autoincrement())
+  user_id        Int?
+  name           String           @db.VarChar(160)
+  code           String           @unique @db.VarChar(80)
+  display_order  Int              @default(0)
+  source         String           @default("predefined") @db.VarChar(30)
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  study_rooms    study_rooms[]
+  study_sessions study_sessions[]
+  user           User?            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  topics         Topic[]
+
+  @@map("subjects")
+}
+
+model Topic {
+  id                 Int                 @id @default(autoincrement())
+  subject_id         Int
+  title              String              @db.VarChar(255)
+  description        String?
+  display_order      Int                 @default(0)
+  source             String              @default("predefined") @db.VarChar(30)
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  attachments        attachments[]
+  discussion_threads DiscussionThread[]
+  flashcards         flashcards[]
+  focus_sessions     FocusSession[]
+  notes              notes[]
+  progress           Progress[]
+  pyq_tracking       pyq_tracking[]
+  revision_schedule  revision_schedule[]
+  revisions          revisions[]
+  study_sessions     study_sessions[]
+  topic_progress     topic_progress[]
+  subject            Subject             @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  weak_topics        weak_topics[]
+
+  @@unique([subject_id, title])
+  @@index([subject_id], map: "idx_topics_subject")
+  @@map("topics")
+}
+
+model Progress {
+  id               Int       @id @default(autoincrement())
+  user_id          Int?
+  subject          String?   @db.VarChar(100)
+  topic            String?   @db.VarChar(255)
+  study_hours      Int?
+  study_date       DateTime? @db.Date
+  topic_id         Int?
+  confidence_level Int       @default(3)
+  difficulty_level String    @default("medium") @db.VarChar(20)
+  need_more_study  Boolean   @default(false)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  topic_ref        Topic?    @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  user             User?     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([study_date(sort: Desc)], map: "idx_progress_study_date")
+  @@index([subject], map: "idx_progress_subject")
+  @@index([user_id], map: "idx_progress_user")
+  @@map("progress")
+}
+
+model Goal {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  title         String    @db.VarChar(180)
+  goal_type     String    @default("weekly") @db.VarChar(30)
+  target_value  Decimal   @default(0) @db.Decimal(8, 2)
+  current_value Decimal   @default(0) @db.Decimal(8, 2)
+  unit          String    @default("hours") @db.VarChar(30)
+  start_date    DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date      DateTime? @db.Date
+  status        String    @default("active") @db.VarChar(30)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  user          User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, status], map: "idx_goals_user")
+  @@map("goals")
+}
+
+model FocusSession {
+  id               Int       @id @default(autoincrement())
+  user_id          Int
+  topic_id         Int?
+  mode             String    @default("pomodoro") @db.VarChar(30)
+  focus_minutes    Int       @default(25)
+  break_minutes    Int       @default(5)
+  cycles           Int       @default(1)
+  completed_cycles Int       @default(0)
+  status           String    @default("planned") @db.VarChar(30)
+  started_at       DateTime? @db.Timestamptz(6)
+  ended_at         DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  topics           Topic?    @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_focus_sessions_user")
+  @@map("focus_sessions")
+}
+
+model Notification {
+  id                Int       @id @default(autoincrement())
+  user_id           Int
+  title             String    @db.VarChar(180)
+  body              String    @default("")
+  notification_type String    @default("info") @db.VarChar(40)
+  action_url        String?
+  read_at           DateTime? @db.Timestamptz(6)
+  scheduled_for     DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  user              User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, read_at, created_at(sort: Desc)], map: "idx_notifications_user")
+  @@map("notifications")
+}
+
+model UserSession {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int
+  refresh_token_hash String    @unique
+  user_agent         String?
+  ip_address         String?   @db.Inet
+  expires_at         DateTime  @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  user               User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("user_sessions")
+}
+
+model PasswordResetToken {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, expires_at], map: "idx_password_reset_user")
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, expires_at], map: "idx_email_verification_user")
+  @@map("email_verification_tokens")
+}
+
+model OAuthAccount {
+  id                  Int      @id @default(autoincrement())
+  user_id             Int
+  provider            String   @db.VarChar(40)
+  provider_account_id String   @db.VarChar(180)
+  access_token_hash   String?
+  refresh_token_hash  String?
+  profile             Json     @default("{}")
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, provider_account_id])
+  @@index([user_id], map: "idx_oauth_accounts_user")
+  @@map("oauth_accounts")
+}
+
+model UserMfaSetting {
+  user_id          Int       @id
+  secret           String
+  enabled          Boolean   @default(false)
+  recovery_codes   Json      @default("[]")
+  last_verified_at DateTime? @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("user_mfa_settings")
+}
+
+model StudyGroup {
+  id          Int                @id @default(autoincrement())
+  owner_id    Int
+  name        String             @db.VarChar(180)
+  description String?
+  visibility  String             @default("private") @db.VarChar(30)
+  created_at  DateTime           @default(now()) @db.Timestamptz(6)
+  threads     DiscussionThread[]
+  members     StudyGroupMember[]
+  owner       User               @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("study_groups")
+}
+
+model StudyGroupMember {
+  group_id  Int
+  user_id   Int
+  role      String     @default("member") @db.VarChar(30)
+  joined_at DateTime   @default(now()) @db.Timestamptz(6)
+  group     StudyGroup @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([group_id, user_id])
+  @@map("study_group_members")
+}
+
+model DiscussionThread {
+  id         Int                 @id @default(autoincrement())
+  group_id   Int?
+  user_id    Int
+  topic_id   Int?
+  title      String              @db.VarChar(220)
+  body       String
+  created_at DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at DateTime            @default(now()) @db.Timestamptz(6)
+  comments   DiscussionComment[]
+  group      StudyGroup?         @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  topics     Topic?              @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  user       User                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([group_id, created_at(sort: Desc)], map: "idx_discussions_group")
+  @@index([topic_id, created_at(sort: Desc)], map: "idx_discussions_topic")
+  @@map("discussion_threads")
+}
+
+model DiscussionComment {
+  id         Int              @id @default(autoincrement())
+  thread_id  Int
+  user_id    Int
+  body       String
+  created_at DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at DateTime         @default(now()) @db.Timestamptz(6)
+  thread     DiscussionThread @relation(fields: [thread_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([thread_id, created_at], map: "idx_discussion_comments_thread")
+  @@map("discussion_comments")
+}
+
+model FileVersion {
+  id              Int          @id @default(autoincrement())
+  attachment_id   Int?
+  user_id         Int
+  version_number  Int          @default(1)
+  storage_key     String?
+  file_name       String
+  mime_type       String?
+  file_size_bytes Int?
+  checksum        String?
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  attachments     attachments? @relation(fields: [attachment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([attachment_id, version_number(sort: Desc)], map: "idx_file_versions_attachment")
+  @@map("file_versions")
+}
+
+model achievements {
+  id                Int                 @id @default(autoincrement())
+  code              String              @unique @db.VarChar(80)
+  title             String              @db.VarChar(160)
+  description       String              @default("")
+  xp_reward         Int                 @default(0)
+  badge_type        String              @default("consistency") @db.VarChar(40)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  user_achievements user_achievements[]
+}
+
+model ai_insights {
+  id           Int      @id @default(autoincrement())
+  user_id      Int
+  insight_type String   @db.VarChar(50)
+  title        String   @db.VarChar(180)
+  body         String
+  metadata     Json     @default("{}")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  users        User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_ai_insights_user")
+}
+
+model analytics_snapshots {
+  id                  Int      @id @default(autoincrement())
+  user_id             Int
+  snapshot_date       DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  readiness_score     Decimal  @default(0) @db.Decimal(5, 2)
+  completion_forecast Json     @default("{}")
+  weak_subjects       Json     @default("[]")
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  users               User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, snapshot_date])
+}
+
+model assistant_messages {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  role       String   @db.VarChar(20)
+  content    String
+  metadata   Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model attachments {
+  id             Int           @id @default(autoincrement())
+  user_id        Int
+  topic_id       Int?
+  upload_id      Int?
+  filename       String        @db.VarChar(255)
+  file_type      String        @db.VarChar(80)
+  file_url       String?
+  extracted_text String        @default("")
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  topics         Topic?        @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  uploads        uploads?      @relation(fields: [upload_id], references: [id], onUpdate: NoAction)
+  users          User          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  file_versions  FileVersion[]
+
+  @@index([user_id, topic_id], map: "idx_attachments_user_topic")
+}
+
+model flashcards {
+  id               Int      @id @default(autoincrement())
+  user_id          Int
+  topic_id         Int?
+  front            String
+  back             String
+  difficulty       String   @default("medium") @db.VarChar(20)
+  next_review_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  topics           Topic?   @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, next_review_date], map: "idx_flashcards_user_review")
+}
+
+model notes {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  topic_id   Int
+  note_type  String   @db.VarChar(30)
+  content    String   @default("")
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  topics     Topic    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id, note_type])
+}
+
+model pyq_tracking {
+  id                  Int      @id @default(autoincrement())
+  user_id             Int
+  topic_id            Int
+  solved_count        Int      @default(0)
+  easy_count          Int      @default(0)
+  medium_count        Int      @default(0)
+  hard_count          Int      @default(0)
+  attempted_count     Int      @default(0)
+  correct_count       Int      @default(0)
+  accuracy_percentage Decimal  @default(0) @db.Decimal(5, 2)
+  year_wise_notes     String   @default("")
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+  topics              Topic    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id])
+}
+
+model revision_schedule {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  topic_id        Int
+  revision_stage  Int       @default(1)
+  due_date        DateTime  @db.Date
+  status          String    @default("due") @db.VarChar(30)
+  interval_days   Int       @default(1)
+  last_revised_at DateTime? @db.Date
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  topics          Topic     @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id, revision_stage])
+  @@index([user_id, due_date, status], map: "idx_revision_schedule_user_due")
+}
+
+model revisions {
+  id            Int      @id @default(autoincrement())
+  user_id       Int
+  topic_id      Int
+  revision_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  hours         Decimal  @default(0) @db.Decimal(6, 2)
+  notes         String   @default("")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  topics        Topic    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, revision_date(sort: Desc)], map: "idx_revisions_user_date")
+}
+
+model streaks {
+  user_id            Int       @id
+  current_streak     Int       @default(0)
+  longest_streak     Int       @default(0)
+  last_activity_date DateTime? @db.Date
+  xp_points          Int       @default(0)
+  level              Int       @default(1)
+  updated_at         DateTime  @default(now()) @db.Timestamptz(6)
+  users              User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model study_room_members {
+  room_id     Int
+  user_id     Int
+  role        String      @default("member") @db.VarChar(30)
+  joined_at   DateTime    @default(now()) @db.Timestamptz(6)
+  study_rooms study_rooms @relation(fields: [room_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([room_id, user_id])
+}
+
+model study_room_messages {
+  id          Int         @id @default(autoincrement())
+  room_id     Int
+  user_id     Int
+  message     String
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  study_rooms study_rooms @relation(fields: [room_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       User        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model study_rooms {
+  id                  Int                   @id @default(autoincrement())
+  owner_id            Int
+  name                String                @db.VarChar(180)
+  subject_id          Int?
+  room_code           String                @unique @db.VarChar(40)
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  study_room_members  study_room_members[]
+  study_room_messages study_room_messages[]
+  users               User                  @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subjects            Subject?              @relation(fields: [subject_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model study_sessions {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  topic_id        Int?
+  subject_id      Int?
+  session_type    String    @default("study") @db.VarChar(30)
+  planned_minutes Int       @default(0)
+  actual_minutes  Int       @default(0)
+  focus_score     Int       @default(0)
+  started_at      DateTime? @db.Timestamptz(6)
+  ended_at        DateTime? @db.Timestamptz(6)
+  notes           String    @default("")
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  subjects        Subject?  @relation(fields: [subject_id], references: [id], onUpdate: NoAction)
+  topics          Topic?    @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  users           User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, started_at(sort: Desc)], map: "idx_study_sessions_user_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model topic_progress {
+  id               Int      @id @default(autoincrement())
+  user_id          Int
+  topic_id         Int
+  completed        Boolean  @default(false)
+  study_hours      Decimal  @default(0) @db.Decimal(7, 2)
+  revision_count   Int      @default(0)
+  confidence_level Int      @default(3)
+  need_more_study  Boolean  @default(false)
+  difficulty_level String   @default("medium") @db.VarChar(20)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  topics           Topic    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id])
+  @@index([user_id], map: "idx_topic_progress_user")
+}
+
+model uploads {
+  id              Int           @id @default(autoincrement())
+  user_id         Int
+  filename        String        @db.VarChar(255)
+  mime_type       String        @db.VarChar(120)
+  file_size       Int
+  extracted_text  String        @default("")
+  parsed_subjects Json          @default("[]")
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  attachments     attachments[]
+  users           User          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_uploads_user")
+}
+
+model user_achievements {
+  id             Int          @id @default(autoincrement())
+  user_id        Int
+  achievement_id Int
+  unlocked_at    DateTime     @default(now()) @db.Timestamptz(6)
+  achievements   achievements @relation(fields: [achievement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          User         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, achievement_id])
+}
+
+model weak_topics {
+  id             Int      @id @default(autoincrement())
+  user_id        Int
+  topic_id       Int
+  is_hard        Boolean  @default(false)
+  is_weak        Boolean  @default(false)
+  needs_revision Boolean  @default(false)
+  high_priority  Boolean  @default(false)
+  reason         String   @default("")
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+  topics         Topic    @relation(fields: [topic_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, topic_id])
+}
