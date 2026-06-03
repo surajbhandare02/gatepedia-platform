@@ -36,7 +36,7 @@ if (
 module.exports = {
   nodeEnv,
   port: toInt(process.env.PORT, 5000),
-  clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
+  clientOrigin: process.env.CLIENT_ORIGIN || "https://gateopedia.vercel.app",
   apiBaseUrl: process.env.API_BASE_URL || "http://localhost:5000",
   jwtSecret:
     process.env.JWT_SECRET ||
