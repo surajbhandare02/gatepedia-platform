@@ -8,6 +8,7 @@ import { Spinner } from "../components/ui/Spinner";
 import { ProgressForm } from "../components/progress/ProgressForm";
 import { ProgressTable } from "../components/progress/ProgressTable";
 import { GATE_SUBJECTS } from "../constants/subjects";
+import { motion } from "framer-motion";
 
 import { useProgressList, useDashboardAnalytics, useProgressMutations } from "../hooks/useProgress";
 import { useSubjects } from "../hooks/useSyllabus";
@@ -137,7 +138,12 @@ export function DashboardPage() {
           </div>
         )}
 
-        <section className="grid stats-grid">
+        <motion.section 
+          className="grid stats-grid"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, staggerChildren: 0.1 }}
+        >
           <StatCard
             label="Total hours"
             value={summary ? summary.totalHours.toFixed(1) : "—"}
@@ -174,10 +180,15 @@ export function DashboardPage() {
             hint={`${summary?.pyq?.accuracyPercentage ?? 0}% accuracy tracked`}
             accent="violet"
           />
-        </section>
+        </motion.section>
 
-        <section className="grid widgets-grid">
-          <article className="panel ring-panel">
+        <motion.section 
+          className="grid widgets-grid"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <article className="panel ring-panel bg-white/10 backdrop-blur-md border border-white/20 dark:bg-black/20">
             <div className="panel-head">
               <h2>Today vs daily goal</h2>
               <p className="panel-sub">Stay above your baseline — small wins compound.</p>
@@ -212,7 +223,7 @@ export function DashboardPage() {
             </div>
           </article>
 
-          <article className="panel ring-panel">
+          <article className="panel ring-panel bg-white/10 backdrop-blur-md border border-white/20 dark:bg-black/20">
             <div className="panel-head">
               <h2>Phase progress</h2>
               <p className="panel-sub">Illustrative target: 320h — adjust in code for your plan.</p>
@@ -239,9 +250,14 @@ export function DashboardPage() {
               </div>
             </div>
           </article>
-        </section>
+        </motion.section>
 
-        <section className="saas-grid">
+        <motion.section 
+          className="saas-grid"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
           {analytics?.weeklySeries && (
             <article className="panel">
               <div className="panel-head">
@@ -266,7 +282,7 @@ export function DashboardPage() {
           )}
 
           {analytics?.bySubject && (
-            <article className="panel">
+            <article className="panel bg-white/10 backdrop-blur-md border border-white/20 dark:bg-black/20">
               <div className="panel-head">
                 <h2>Subject Analytics</h2>
                 <p className="panel-sub">Progress breakdown by topic.</p>
@@ -286,7 +302,7 @@ export function DashboardPage() {
               </div>
             </article>
           )}
-        </section>
+        </motion.section>
 
         <ProgressForm
           editingId={editingId}
@@ -300,7 +316,12 @@ export function DashboardPage() {
           subjects={subjectOptions}
         />
 
-        <section className="panel">
+        <motion.section 
+          className="panel bg-white/10 backdrop-blur-md border border-white/20 dark:bg-black/20"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
           <div className="panel-head row-between">
             <div>
               <h2>Session history</h2>
@@ -347,7 +368,7 @@ export function DashboardPage() {
           </form>
 
           <ProgressTable rows={rows} onEdit={onEdit} onDelete={onDelete} busyId={busyId} />
-        </section>
+        </motion.section>
       </div>
     </>
   );
